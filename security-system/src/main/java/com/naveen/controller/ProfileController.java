@@ -5,10 +5,11 @@ import com.naveen.io.ProfileResponse;
 import com.naveen.service.ProfileService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.CurrentSecurityContext;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1.0")
+//@RequestMapping("/api/v1.0") // since we added the context-path, we don't want this
 public class ProfileController {
 
     private final ProfileService profileService;
@@ -25,4 +26,10 @@ public class ProfileController {
 
         return response;
     }
+
+    @GetMapping("/profile")
+    public ProfileResponse getProfile(@CurrentSecurityContext(expression = "authentication?.name") String email){
+        return profileService.getProfile(email);
+    }
+
 }
