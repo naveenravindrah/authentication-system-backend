@@ -80,6 +80,10 @@ public class ProfileServiceImpl implements ProfileService{
         existingUser.setResetOtpExpireAt(0L);
 
         userRepository.save(existingUser);
+
+//      send password changed notification
+        emailService.sendPasswordChangedNotification(existingUser.getEmail(), existingUser.getName());
+
     }
 
     @Override
@@ -110,7 +114,7 @@ public class ProfileServiceImpl implements ProfileService{
     public void verifyOtp(String email, String otp) {
         UserEntity existingUser = userRepository.findByEmail(email)
                 .orElseThrow(()->new UsernameNotFoundException("User not found : "+email));
-        if (!Objects.equals(existingUser.getVerifyOtp(), otp) && existingUser.getVerifyOtp() == null){
+        if (existingUser.getVerifyOtp() == null || !existingUser.getVerifyOtp().equals(otp)) {
             throw new RuntimeException("Invalid OTP");
         }
         if(existingUser.getVerifyOtpExpireAt() < System.currentTimeMillis()){
@@ -119,6 +123,14 @@ public class ProfileServiceImpl implements ProfileService{
         existingUser.setIsAccountVerified(true);
         existingUser.setVerifyOtp(null);
         existingUser.setVerifyOtpExpireAt(0L);
+
+        System.out.println("User email: " + email);
+        System.out.println("Stored OTP: " + existingUser.getVerifyOtp());
+        System.out.println("Received OTP: " + otp);
+        System.out.println("OTP Expiry: " + existingUser.getVerifyOtpExpireAt());
+        System.out.println("Current Time: " + System.currentTimeMillis());
+
+
         userRepository.save(existingUser);
     }
 

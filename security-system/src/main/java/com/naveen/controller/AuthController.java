@@ -1,11 +1,14 @@
 package com.naveen.controller;
 
+import com.naveen.entity.UserEntity;
 import com.naveen.io.AuthRequest;
 import com.naveen.io.AuthResponse;
 import com.naveen.io.ResetPasswordRequest;
+import com.naveen.repository.UserRepository;
 import com.naveen.service.AppUserDetailsService;
 import com.naveen.service.ProfileService;
 import com.naveen.util.JwtUtil;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.*;
@@ -15,6 +18,7 @@ import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.annotation.CurrentSecurityContext;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -30,6 +34,7 @@ public class AuthController {
     private final AppUserDetailsService appUserDetailsService;
     private final JwtUtil jwtUtil;
     private final ProfileService profileService;
+    private final UserRepository userRepository;
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody AuthRequest request) {
@@ -44,8 +49,14 @@ public class AuthController {
                     .maxAge(Duration.ofDays(1))
                     .sameSite("Strict")
                     .build();
-            return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE,cookie.toString())
-                    .body(new AuthResponse(request.getEmail(), jwtToken));
+
+            // Fetch user entity to get full name
+            UserEntity user = userRepository.findByEmail(request.getEmail())
+                    .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE,cookie.toString())
+                    .body(new AuthResponse(request.getEmail(), jwtToken, user.getName()));
         }catch(BadCredentialsException ex) {
             Map<String,Object> error = new HashMap<>();
             error.put("error",true);
@@ -114,5 +125,20 @@ public class AuthController {
         } catch (Exception e){
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,e.getMessage());
         }
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(HttpServletResponse response) {
+//        override the cookie with empty value
+        ResponseCookie cookie = ResponseCookie.from("jwt","")
+                .httpOnly(true)
+                .secure(false)
+                .path("/")
+                .maxAge(0)
+                .sameSite("Strict")
+                .build();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .body("Logged out Successfully!");
     }
 }
